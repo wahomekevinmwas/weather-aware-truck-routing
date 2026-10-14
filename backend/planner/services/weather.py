@@ -1,4 +1,4 @@
-﻿"""Weather: batched Open-Meteo requests with a cache. HTTP is isolated here so the rest is testable offline."""
+"""Weather: batched Open-Meteo requests with a cache. HTTP is isolated here so the rest is testable offline."""
 import math
 import threading
 import time
@@ -82,7 +82,7 @@ class WeatherBatch:
 
 
 class WeatherClient:
-    def __init__(self, session=None, timeout=30, retries=2, ttl_seconds=1800,
+    def __init__(self, session=None, timeout=8, retries=2, ttl_seconds=1800,
                  clock=time.time, sleep=time.sleep, budget_seconds=20.0, rate_retries=1):
         self.session = session or requests.Session()
         self.timeout, self.retries, self.ttl = timeout, retries, ttl_seconds
