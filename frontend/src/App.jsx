@@ -1,4 +1,7 @@
 import { useState } from "react";
+import RouteMap from "./RouteMap.jsx";
+import { LEVELS } from "./riskColors.js";
+import { formatLocal } from "./format.js";
 
 // Departure is local time at the origin, written without a UTC offset (decision 8).
 // <input type="datetime-local"> produces exactly "YYYY-MM-DDTHH:MM", which is what the API expects.
@@ -55,16 +58,6 @@ function PlanForm({ form, setForm, loading, onSubmit }) {
   );
 }
 
-// One entry per risk level in severity order. `key` must match the keys in stats.miles_by_level.
-const LEVELS = [
-  { key: "Low", fill: "#2e9e5b" },
-  { key: "Moderate", fill: "#e6b800" },
-  { key: "High", fill: "#e8820c" },
-  { key: "Severe", fill: "#d6322e" },
-  { key: "No Travel", fill: "#5a0f1e" },
-  // Unknown (no usable weather) is grey stripes, so it can never be mistaken for Low (green).
-  { key: "Unknown", fill: "repeating-linear-gradient(45deg, #b8b8b8, #b8b8b8 4px, #e6e6e6 4px, #e6e6e6 8px)" },
-];
 
 // RiskBar: one horizontal bar per route. Each coloured segment is as wide as the miles at that level.
 function RiskBar({ milesByLevel }) {
@@ -113,7 +106,7 @@ function SpacingLine({ spacing }) {
 }
 
 // RouteCard: one route's summary. `fastestHours` is the shortest duration among all routes.
-function RouteCard({ route, fastestHours }) {
+function RouteCard({ route, fastestHours, selected, onSelect }) {
   const stats = route.stats;
   const miles = stats.miles_by_level;
   const unknownMiles = miles.Unknown ?? 0;
@@ -121,9 +114,11 @@ function RouteCard({ route, fastestHours }) {
   const noData = unknownMiles >= route.distance_miles - 0.5;
   const extraHours = route.duration_hours - fastestHours;
   return (
-    <div
+    <div onClick={onSelect}
       style={{
         border: route.recommended ? "2px solid #2e9e5b" : "1px solid #ccc",
+        cursor: "pointer",
+        boxShadow: selected ? "0 0 0 3px #1f5fbf" : "none",
         borderRadius: 8,
         padding: 12,
         flex: "1 1 260px",
@@ -143,7 +138,7 @@ function RouteCard({ route, fastestHours }) {
         {route.distance_miles} mi &middot; {route.duration_hours} h &middot;{" "}
         {extraHours >= 0.05 ? `+${extraHours.toFixed(1)} h vs fastest` : "Fastest"}
       </p>
-      <p style={{ margin: "4px 0 0" }}>Arrives: {route.arrival_local}</p>
+      <p style={{ margin: "4px 0 0" }}>Arrives (origin time): {formatLocal(route.arrival_local)}</p>
       <p style={{ margin: "4px 0 0" }}>
         Worst: {noData ? "No weather data" : stats.worst_level} &middot; Avg risk:{" "}
         {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}
@@ -165,6 +160,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(0);
 
   async function plan() {
     setLoading(true);
@@ -188,6 +184,7 @@ export default function App() {
         setError(`${err.message ?? "Request failed"}${err.field ? ` (field: ${err.field})` : ""}`);
       } else {
         setResult(data);
+        setSelected(data.recommended_index); // start with the recommended route selected
       }
     } catch (e) {
       setError("Could not reach the server.");
@@ -219,8 +216,13 @@ export default function App() {
                 key={r.index}
                 route={r}
                 fastestHours={Math.min(...result.routes.map((x) => x.duration_hours))}
+                selected={r.index === selected}
+                onSelect={() => setSelected(r.index)}
               />
             ))}
+          </div>
+        <div style={{ marginTop: 16 }}>
+            <RouteMap routes={result.routes} selectedIndex={selected} onSelect={setSelected} />
           </div>
         </>
       )}
