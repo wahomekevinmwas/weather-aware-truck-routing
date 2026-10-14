@@ -1,5 +1,6 @@
 ﻿"""Weather: batched Open-Meteo requests with a cache. HTTP is isolated here so the rest is testable offline."""
 import math
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -82,15 +83,18 @@ class WeatherBatch:
 
 class WeatherClient:
     def __init__(self, session=None, timeout=30, retries=2, ttl_seconds=1800,
-                 clock=time.time, sleep=time.sleep):
+                 clock=time.time, sleep=time.sleep, budget_seconds=20.0, rate_retries=1):
         self.session = session or requests.Session()
         self.timeout, self.retries, self.ttl = timeout, retries, ttl_seconds
         self.clock, self.sleep = clock, sleep
+        self.budget, self.rate_retries = budget_seconds, rate_retries
         self._cache = {}   # point_key -> (expires_at, days, hours)
 
     def fetch(self, points, days):
         keys = list(dict.fromkeys(point_key(lat, lon) for lat, lon in points))
         now = self.clock()
+        deadline = now + self.budget
+        stop = threading.Event()   # set when a chunk is finally rate limited
         result, todo = {}, []
         for k in keys:
             hit = self._cache.get(k)
@@ -102,7 +106,7 @@ class WeatherClient:
         chunks = [todo[i:i + CHUNK] for i in range(0, len(todo), CHUNK)]
         if chunks:
             with ThreadPoolExecutor(max_workers=4) as pool:
-                outcomes = list(pool.map(lambda c: self._fetch_chunk(c, days), chunks))
+                outcomes = list(pool.map(lambda c: self._fetch_chunk(c, days, deadline, stop), chunks))
             for chunk, (data, err) in zip(chunks, outcomes):
                 if err:
                     errors.append(err)
@@ -114,16 +118,34 @@ class WeatherClient:
                 raise WeatherError("Weather service unavailable: " + "; ".join(errors))
         return WeatherBatch(result, errors)
 
-    def _fetch_chunk(self, keys, days):
+    def _fetch_chunk(self, keys, days, deadline=None, stop=None):
         params = {"latitude": ",".join(str(k[0]) for k in keys),
                   "longitude": ",".join(str(k[1]) for k in keys),
                   "hourly": ",".join(COLUMNS), "wind_speed_unit": "mph",
                   "precipitation_unit": "inch", "timezone": "GMT", "forecast_days": days}
         last = "unknown error"
+        rate_hits = 0
         for attempt in range(self.retries + 1):
+            if stop is not None and stop.is_set():
+                return None, "skipped after rate limit"
+            timeout = self.timeout
+            if deadline is not None:
+                remaining = deadline - self.clock()
+                if remaining <= 0:
+                    return None, "time budget exceeded"
+                timeout = max(1.0, min(self.timeout, remaining))
             try:
-                r = self.session.get(URL, params=params, timeout=self.timeout)
-                if r.status_code == 429 or r.status_code >= 500:
+                r = self.session.get(URL, params=params, timeout=timeout)
+                if r.status_code == 429:
+                    rate_hits += 1
+                    last = "HTTP 429"
+                    if rate_hits > self.rate_retries:
+                        if stop is not None:
+                            stop.set()
+                        return None, "HTTP 429 (rate limited)"
+                    self.sleep(1)
+                    continue
+                if r.status_code >= 500:
                     last = f"HTTP {r.status_code}"
                 elif r.status_code != 200:
                     return None, f"HTTP {r.status_code}: {r.text[:120]}"
