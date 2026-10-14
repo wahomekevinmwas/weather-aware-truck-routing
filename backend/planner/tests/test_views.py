@@ -3,6 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
+os.environ.setdefault("DJANGO_DEBUG", "1")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 import django
 
