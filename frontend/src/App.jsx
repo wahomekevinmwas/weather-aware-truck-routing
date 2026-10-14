@@ -55,6 +55,105 @@ function PlanForm({ form, setForm, loading, onSubmit }) {
   );
 }
 
+// One entry per risk level in severity order. `key` must match the keys in stats.miles_by_level.
+const LEVELS = [
+  { key: "Low", fill: "#2e9e5b" },
+  { key: "Moderate", fill: "#e6b800" },
+  { key: "High", fill: "#e8820c" },
+  { key: "Severe", fill: "#d6322e" },
+  { key: "No Travel", fill: "#5a0f1e" },
+  // Unknown (no usable weather) is grey stripes, so it can never be mistaken for Low (green).
+  { key: "Unknown", fill: "repeating-linear-gradient(45deg, #b8b8b8, #b8b8b8 4px, #e6e6e6 4px, #e6e6e6 8px)" },
+];
+
+// RiskBar: one horizontal bar per route. Each coloured segment is as wide as the miles at that level.
+function RiskBar({ milesByLevel }) {
+  const total = LEVELS.reduce((sum, l) => sum + (milesByLevel[l.key] ?? 0), 0);
+  if (total <= 0) return null;
+  return (
+    <div style={{ display: "flex", height: 14, borderRadius: 4, overflow: "hidden", background: "#eee" }}>
+      {LEVELS.map((l) => {
+        const miles = milesByLevel[l.key] ?? 0;
+        if (miles <= 0) return null; // skip levels with no miles
+        return (
+          <div
+            key={l.key}
+            title={`${l.key}: ${miles} mi`}
+            style={{ width: `${(miles / total) * 100}%`, background: l.fill }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Legend: one swatch per level, so the bar colours are readable.
+function Legend() {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, margin: "8px 0" }}>
+      {LEVELS.map((l) => (
+        <span key={l.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ width: 12, height: 12, borderRadius: 2, background: l.fill, display: "inline-block" }} />
+          {l.key}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// SpacingLine: shows the spacing the server actually used (it may differ from the dropdown).
+function SpacingLine({ spacing }) {
+  if (!spacing) return null;
+  const changed = spacing.used !== spacing.requested;
+  return (
+    <p style={{ margin: "8px 0" }}>
+      Checkpoints every {spacing.used} mi{changed ? ` (you requested ${spacing.requested})` : ""}.
+    </p>
+  );
+}
+
+// RouteCard: one route's summary. `fastestHours` is the shortest duration among all routes.
+function RouteCard({ route, fastestHours }) {
+  const stats = route.stats;
+  const miles = stats.miles_by_level;
+  const unknownMiles = miles.Unknown ?? 0;
+  // If Unknown covers the whole route, worst_level/average_risk would read as "Low": show "no data" instead.
+  const noData = unknownMiles >= route.distance_miles - 0.5;
+  const extraHours = route.duration_hours - fastestHours;
+  return (
+    <div
+      style={{
+        border: route.recommended ? "2px solid #2e9e5b" : "1px solid #ccc",
+        borderRadius: 8,
+        padding: 12,
+        flex: "1 1 260px",
+        maxWidth: 420,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <strong>Route {route.index + 1}</strong>
+        {route.recommended && (
+          <span style={{ background: "#2e9e5b", color: "white", borderRadius: 10, padding: "2px 8px", fontSize: 12 }}>
+            Recommended
+          </span>
+        )}
+      </div>
+      <RiskBar milesByLevel={miles} />
+      <p style={{ margin: "8px 0 0" }}>
+        {route.distance_miles} mi &middot; {route.duration_hours} h &middot;{" "}
+        {extraHours >= 0.05 ? `+${extraHours.toFixed(1)} h vs fastest` : "Fastest"}
+      </p>
+      <p style={{ margin: "4px 0 0" }}>Arrives: {route.arrival_local}</p>
+      <p style={{ margin: "4px 0 0" }}>
+        Worst: {noData ? "No weather data" : stats.worst_level} &middot; Avg risk:{" "}
+        {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}
+      </p>
+      {unknownMiles > 0 && !noData && (
+        <p style={{ margin: "4px 0 0", color: "#666" }}>{unknownMiles} mi without weather data</p>
+      )}
+    </div>
+  );
+}
 export default function App() {
   const [form, setForm] = useState({
     origin: "Chicago, IL",
@@ -112,14 +211,17 @@ export default function App() {
               ))}
             </ul>
           )}
-          <ul>
+          <SpacingLine spacing={result.spacing} />
+          <Legend />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {result.routes.map((r) => (
-              <li key={r.index}>
-                Route {r.index + 1}: {r.distance_miles} mi, {r.duration_hours} h, worst {r.stats.worst_level}
-                {r.recommended ? " (recommended)" : ""}
-              </li>
+              <RouteCard
+                key={r.index}
+                route={r}
+                fastestHours={Math.min(...result.routes.map((x) => x.duration_hours))}
+              />
             ))}
-          </ul>
+          </div>
         </>
       )}
     </main>
