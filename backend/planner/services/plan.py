@@ -1,4 +1,4 @@
-﻿"""Plan service: one trip request in, scored and ranked routes out.
+"""Plan service: one trip request in, scored and ranked routes out.
 
 Orchestration only: the rules live in planner.core, and all network access goes through the
 injected clients, so everything here is testable offline.
@@ -6,7 +6,7 @@ injected clients, so everything here is testable offline.
 import logging
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from ..core.checkpoints import MERGE_MILES, SPACINGS, build_checkpoints, departure_to_utc, forecast_key
@@ -14,6 +14,7 @@ from ..core.geo import haversine, simplify
 from ..core.recommend import compute_stats, recommend
 from ..core.risk import classify
 from .geocoding import GeocodeError
+from .heat import HEAT_HOURS, hourly_levels
 from .routing import RoutingError, build_route_options
 from .weather import MAX_FORECAST_DAYS, WeatherError, days_needed
 
@@ -204,7 +205,8 @@ class PlanService:
         if truncated:
             notes.append(f"The {MAX_FORECAST_DAYS}-day forecast window ends before this trip does, "
                          "so checkpoints after it are shown as Unknown.")
-        batch = self._weather(all_cps, days, notes)
+        heat_days, _ = days_needed(today, departure_utc + timedelta(hours=HEAT_HOURS))
+        batch = self._weather(all_cps, max(days, heat_days), notes)
 
         scored = []
         for route, cps in zip(routes, all_cps):
@@ -237,6 +239,7 @@ class PlanService:
                 "distance_miles": round(route.distance_miles, 1),
                 "duration_hours": round(route.duration_hours, 2),
                 "arrival_utc": cps[-1].eta.isoformat(),
+                "heat_levels": [hourly_levels(batch, cp.lat, cp.lon, departure_utc, req.load_lb) for cp in cps],
                 "arrival_local": cps[-1].eta.astimezone(tz).isoformat(timespec="minutes"),
                 "stats": _stats_json(stats, any(level is not None for level in levels)),
                 "checkpoints": [_checkpoint_json(cp, rd, a, tz) for cp, rd, a in zip(cps, readings, assessments)],
@@ -251,6 +254,7 @@ class PlanService:
                           "utc": departure_utc.isoformat(), "timezone": tz_name},
             "load_lb": req.load_lb,
             "spacing": {"requested": req.spacing, "used": spacing},
+            "heat": {"start_utc": departure_utc.isoformat(), "timezone": tz_name, "hours": HEAT_HOURS},
             "routes": route_json,
             "recommended_index": best,
             "explanation": explanation,

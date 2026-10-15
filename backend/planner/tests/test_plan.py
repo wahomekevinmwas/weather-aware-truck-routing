@@ -1,11 +1,12 @@
-﻿import unittest
-from datetime import datetime, timezone
+import unittest
+from datetime import datetime, timedelta, timezone
 
 from planner.core.checkpoints import SPACINGS, build_checkpoints
 from planner.services.geocoding import GeocodeError, Place
 from planner.services.plan import PlanError, PlanService, checkpoint_count, choose_spacing
 from planner.services.routing import RawRoute, RouteOptions, RoutingError
-from planner.services.weather import WeatherBatch, WeatherError, point_key
+from planner.services.heat import HEAT_HOURS
+from planner.services.weather import WeatherBatch, WeatherError, days_needed, point_key
 
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=timezone.utc)
 PLACES = {"Origin": (40.0, -90.0), "Dest": (42.0, -90.0), "Origin Twin": (40.0, -90.0)}
@@ -96,7 +97,10 @@ class PlanFlowTests(unittest.TestCase):
         self.assertEqual(len(res["routes"]), 3)
         self.assertEqual(res["spacing"], {"requested": 25, "used": 25})
         self.assertEqual(len(weather.calls), 1)
-        self.assertEqual(weather.calls[0][1], 3)
+        # The trip ends on 16 Oct (3 forecast days from NOW), but the 48 h heat window reaches 18 Oct (5 days).
+        departure_utc = datetime(2026, 10, 16, 13, 0, tzinfo=timezone.utc)  # 08:00 Chicago (CDT, UTC-5)
+        expected_days, _ = days_needed(NOW.date(), departure_utc + timedelta(hours=HEAT_HOURS))
+        self.assertEqual(weather.calls[0][1], expected_days)
         first = res["routes"][0]
         cps = first["checkpoints"]
         self.assertEqual([c["mile"] for c in cps], [0.0, 25.0, 50.0, 75.0, 100.0, 125.0, 140.0])
