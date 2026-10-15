@@ -115,7 +115,7 @@ def recommend(stats_list):
             va, vb = getattr(a, attr), getattr(b, attr)
             if bucket(va, tol) != bucket(vb, tol):
                 if attr == "duration_hours":
-                    explanation = f"Weather risk is similar across routes, so the {text} wins ({va:.1f} h vs {vb:.1f} h)."
+                    explanation = f"Weather risk is similar to the next-best route, so the {text} wins ({va:.1f} h vs {vb:.1f} h)."
                 elif attr == "no_travel_miles":
                     explanation = f"Chosen for the {text} ({va:.1f} vs {vb:.1f} miles)."
                 elif attr == "average_risk":

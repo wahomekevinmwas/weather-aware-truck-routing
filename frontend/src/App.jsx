@@ -137,7 +137,7 @@ function RouteCard({ route, fastestHours, selected, onSelect }) {
         {extraHours >= 0.05 ? `+${extraHours.toFixed(1)} h vs fastest` : "Fastest"}
       </p>
       <p className="muted">Arrives (origin time): {formatLocal(route.arrival_local)}</p>
-      {unknownMiles > 0 && !noData && <p className="muted">{unknownMiles} mi without weather data</p>}
+      {unknownMiles > 0 && !noData && (<p className="muted" style={{ color: "#e6b800" }}>{Math.round((unknownMiles / route.distance_miles) * 100)}% of this route ({unknownMiles} mi) has no weather data, so its risk may be understated.</p>)}
     </div>
   );
 }
