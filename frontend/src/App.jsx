@@ -1,5 +1,6 @@
 import { useState } from "react";
 import RouteMap from "./RouteMap.jsx";
+import HeatSlider from "./HeatSlider.jsx";
 import { LEVELS } from "./riskColors.js";
 import { formatLocal } from "./format.js";
 
@@ -161,6 +162,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(0);
+  const [hour, setHour] = useState(0); // slider position: hours after departure (0-48)
 
   async function plan() {
     setLoading(true);
@@ -184,6 +186,7 @@ export default function App() {
         setError(`${err.message ?? "Request failed"}${err.field ? ` (field: ${err.field})` : ""}`);
       } else {
         setResult(data);
+        setHour(0);
         setSelected(data.recommended_index); // start with the recommended route selected
       }
     } catch (e) {
@@ -222,7 +225,8 @@ export default function App() {
             ))}
           </div>
         <div style={{ marginTop: 16 }}>
-            <RouteMap routes={result.routes} selectedIndex={selected} onSelect={setSelected} />
+            {result.heat && <HeatSlider heat={result.heat} hour={hour} onChange={setHour} />}
+            <RouteMap routes={result.routes} selectedIndex={selected} onSelect={setSelected} hour={hour} spacingUsed={result.spacing.used} />
           </div>
         </>
       )}

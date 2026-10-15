@@ -1,8 +1,11 @@
-import { Fragment, useEffect } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, useMap } from "react-leaflet";
+import { Fragment, memo, useEffect } from "react";
+import { MapContainer, TileLayer, Polyline, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { dotColor } from "./riskColors.js";
+import { LEVELS, dotColor } from "./riskColors.js";
 import { formatLocal } from "./format.js";
+
+const METRES_PER_MILE = 1609.34;
+const UNKNOWN_HEAT = "#9a9a9a";
 
 // FitBounds: when new routes arrive, zoom the map so every route is visible.
 // useMap() gives access to the Leaflet map this component sits inside; it draws nothing itself.
@@ -38,17 +41,37 @@ function CheckpointPopup({ routeNumber, cp }) {
   );
 }
 
-// RouteMap: all routes as lines, every checkpoint as a risk-coloured dot.
-// The selected route is drawn last (on top), thicker and blue; the others are grey and smaller.
-export default function RouteMap({ routes, selectedIndex, onSelect }) {
+// HeatLayer: one translucent circle per checkpoint of the SELECTED route. The colour is the risk at the
+// slider's hour (heat_levels[checkpoint][hour]); null (no data) is grey, never green. Neighbouring circles
+// overlap, which reads as a shaded corridor. interactive:false lets clicks fall through to lines and dots.
+function HeatLayer({ route, hour, spacingUsed }) {
+  if (!route || !route.heat_levels) return null;
+  const radius = 0.6 * spacingUsed * METRES_PER_MILE;
+  return (
+    <>
+      {route.checkpoints.map((cp, i) => {
+        const value = route.heat_levels?.[i]?.[hour];
+        const fill = value == null ? UNKNOWN_HEAT : LEVELS[value]?.fill ?? UNKNOWN_HEAT;
+        return (
+          <Circle
+            key={cp.mile}
+            center={[cp.lat, cp.lon]}
+            radius={radius}
+            pathOptions={{ stroke: false, fillColor: fill, fillOpacity: 0.3, interactive: false }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// RouteLayers: the route lines and checkpoint dots. memo() makes React skip re-drawing it when its props
+// are unchanged, so dragging the slider (which only changes `hour`) never redraws these.
+const RouteLayers = memo(function RouteLayers({ routes, selectedIndex, onSelect }) {
+  // The selected route is drawn last (on top), thicker and blue; the others are grey and smaller.
   const drawOrder = [...routes].sort((a, b) => (a.index === selectedIndex) - (b.index === selectedIndex));
   return (
-    <MapContainer center={[39.5, -98.35]} zoom={4} style={{ height: 520, width: "100%", borderRadius: 8 }}>
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <FitBounds routes={routes} />
+    <>
       {drawOrder.map((route) => {
         const selected = route.index === selectedIndex;
         return (
@@ -73,6 +96,23 @@ export default function RouteMap({ routes, selectedIndex, onSelect }) {
           </Fragment>
         );
       })}
+    </>
+  );
+});
+
+// RouteMap: heat first (underneath), then lines and dots on top. preferCanvas draws every shape on one
+// <canvas> instead of one SVG element each, which keeps the map smooth with hundreds of shapes.
+export default function RouteMap({ routes, selectedIndex, onSelect, hour = 0, spacingUsed = 25 }) {
+  const selectedRoute = routes.find((r) => r.index === selectedIndex);
+  return (
+    <MapContainer preferCanvas center={[39.5, -98.35]} zoom={4} style={{ height: 520, width: "100%", borderRadius: 8 }}>
+      <TileLayer
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <FitBounds routes={routes} />
+      <HeatLayer route={selectedRoute} hour={hour} spacingUsed={spacingUsed} />
+      <RouteLayers routes={routes} selectedIndex={selectedIndex} onSelect={onSelect} />
     </MapContainer>
   );
 }
