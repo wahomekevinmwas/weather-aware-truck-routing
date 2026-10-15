@@ -14,10 +14,11 @@ function clockLabel(heat, hour) {
 
 export default function HeatSlider({ heat, hour, onChange }) {
   return (
-    <div style={{ margin: "12px 0" }}>
-      <label style={{ display: "block", fontWeight: 600 }}>
-        Forecast time: {clockLabel(heat, hour)} (origin time) &middot; {hour === 0 ? "departure" : `+${hour} h`}
-      </label>
+    <div className="heat-slider">
+      <div>
+        <strong>Forecast time:</strong> {clockLabel(heat, hour)} (origin time) &middot;{" "}
+        {hour === 0 ? "departure" : `+${hour} h`}
+      </div>
       <input
         type="range"
         min="0"
@@ -25,9 +26,8 @@ export default function HeatSlider({ heat, hour, onChange }) {
         step="1"
         value={hour}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%" }}
       />
-      <div style={{ fontSize: 13, color: "#555" }}>
+      <div className="muted heat-note">
         Dots show risk at the truck's ETA. The shaded corridor shows forecast conditions along the selected
         route at the slider's time.
       </div>

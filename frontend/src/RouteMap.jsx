@@ -1,5 +1,5 @@
 import { Fragment, memo, useEffect } from "react";
-import { MapContainer, TileLayer, Polyline, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Polyline, CircleMarker, Circle, Popup, ZoomControl, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { LEVELS, dotColor } from "./riskColors.js";
 import { formatLocal } from "./format.js";
@@ -9,11 +9,14 @@ const UNKNOWN_HEAT = "#9a9a9a";
 
 // FitBounds: when new routes arrive, zoom the map so every route is visible.
 // useMap() gives access to the Leaflet map this component sits inside; it draws nothing itself.
+// The padding keeps routes clear of the floating panels (left panel, top bar, bottom bar).
 function FitBounds({ routes }) {
   const map = useMap();
   useEffect(() => {
     const points = routes.flatMap((r) => r.geometry); // each point is [lat, lon]
-    if (points.length > 1) map.fitBounds(points, { padding: [30, 30] });
+    if (points.length > 1) {
+      map.fitBounds(points, { paddingTopLeft: [440, 120], paddingBottomRight: [40, 130] });
+    }
   }, [routes, map]);
   return null;
 }
@@ -57,7 +60,7 @@ function HeatLayer({ route, hour, spacingUsed }) {
             key={cp.mile}
             center={[cp.lat, cp.lon]}
             radius={radius}
-            pathOptions={{ stroke: false, fillColor: fill, fillOpacity: 0.3, interactive: false }}
+            pathOptions={{ stroke: false, fillColor: fill, fillOpacity: 0.38, interactive: false }}
           />
         );
       })}
@@ -68,7 +71,7 @@ function HeatLayer({ route, hour, spacingUsed }) {
 // RouteLayers: the route lines and checkpoint dots. memo() makes React skip re-drawing it when its props
 // are unchanged, so dragging the slider (which only changes `hour`) never redraws these.
 const RouteLayers = memo(function RouteLayers({ routes, selectedIndex, onSelect }) {
-  // The selected route is drawn last (on top), thicker and blue; the others are grey and smaller.
+  // The selected route is drawn last (on top), thicker and teal; the others are grey and smaller.
   const drawOrder = [...routes].sort((a, b) => (a.index === selectedIndex) - (b.index === selectedIndex));
   return (
     <>
@@ -78,7 +81,7 @@ const RouteLayers = memo(function RouteLayers({ routes, selectedIndex, onSelect 
           <Fragment key={route.index}>
             <Polyline
               positions={route.geometry}
-              pathOptions={{ color: selected ? "#1f5fbf" : "#7a7a7a", weight: selected ? 6 : 4, opacity: selected ? 0.9 : 0.6 }}
+              pathOptions={{ color: selected ? "#4dd6c9" : "#9fb0bb", weight: selected ? 6 : 4, opacity: selected ? 0.95 : 0.5 }}
               eventHandlers={{ click: () => onSelect(route.index) }}
             />
             {route.checkpoints.map((cp) => (
@@ -102,14 +105,17 @@ const RouteLayers = memo(function RouteLayers({ routes, selectedIndex, onSelect 
 
 // RouteMap: heat first (underneath), then lines and dots on top. preferCanvas draws every shape on one
 // <canvas> instead of one SVG element each, which keeps the map smooth with hundreds of shapes.
+// The tile layer gets the "dark-tiles" class, which styles.css uses to darken the map.
 export default function RouteMap({ routes, selectedIndex, onSelect, hour = 0, spacingUsed = 25 }) {
   const selectedRoute = routes.find((r) => r.index === selectedIndex);
   return (
-    <MapContainer preferCanvas center={[39.5, -98.35]} zoom={4} style={{ height: 520, width: "100%", borderRadius: 8 }}>
+    <MapContainer preferCanvas zoomControl={false} center={[39.5, -98.35]} zoom={4} style={{ height: "100%", width: "100%" }}>
       <TileLayer
+        className="dark-tiles"
         attribution="&copy; OpenStreetMap contributors"
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <ZoomControl position="bottomright" />
       <FitBounds routes={routes} />
       <HeatLayer route={selectedRoute} hour={hour} spacingUsed={spacingUsed} />
       <RouteLayers routes={routes} selectedIndex={selectedIndex} onSelect={onSelect} />

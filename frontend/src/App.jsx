@@ -3,6 +3,9 @@ import RouteMap from "./RouteMap.jsx";
 import HeatSlider from "./HeatSlider.jsx";
 import { LEVELS } from "./riskColors.js";
 import { formatLocal } from "./format.js";
+import "./styles.css";
+
+const NO_ROUTES = []; // a stable empty list, so the map is not told "routes changed" on every render
 
 // Departure is local time at the origin, written without a UTC offset (decision 8).
 // <input type="datetime-local"> produces exactly "YYYY-MM-DDTHH:MM", which is what the API expects.
@@ -13,38 +16,39 @@ function tomorrowAt8() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T08:00`;
 }
 
+// Colour for a level name such as "High"; falls back to grey for anything unexpected.
+const fillFor = (key) => LEVELS.find((l) => l.key === key)?.fill ?? "#9a9a9a";
+
 // PlanForm: shows the inputs. It owns no data; the parent passes values and a submit function (props).
 function PlanForm({ form, setForm, loading, onSubmit }) {
   // Returns a change handler for one field, so each input updates only its own key in `form`.
   const update = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
-  const row = { display: "flex", flexDirection: "column", gap: 4, minWidth: 160 };
-
   return (
     <form
+      className="plan-form"
       onSubmit={(e) => {
         e.preventDefault(); // stop the browser's default full-page form submit
         onSubmit();
       }}
-      style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end" }}
     >
-      <label style={row}>
+      <label className="field">
         Origin
         <input value={form.origin} onChange={update("origin")} placeholder="City, ST or lat,lon" required />
       </label>
-      <label style={row}>
+      <label className="field">
         Destination
         <input value={form.destination} onChange={update("destination")} placeholder="City, ST or lat,lon" required />
       </label>
-      <label style={row}>
+      <label className="field">
         Departure (local at origin)
         <input type="datetime-local" value={form.departure} onChange={update("departure")} required />
       </label>
-      <label style={row}>
+      <label className="field">
         Load (lb)
         <input type="number" min="0" max="200000" step="1000" value={form.load_lb} onChange={update("load_lb")} required />
       </label>
-      <label style={row}>
+      <label className="field">
         Checkpoint spacing
         <select value={form.spacing} onChange={update("spacing")}>
           <option value="10">Every 10 mi</option>
@@ -52,42 +56,45 @@ function PlanForm({ form, setForm, loading, onSubmit }) {
           <option value="50">Every 50 mi</option>
         </select>
       </label>
-      <button type="submit" disabled={loading}>
+      <button className="primary" type="submit" disabled={loading}>
         {loading ? "Planning (up to ~20 s)..." : "Plan routes"}
       </button>
     </form>
   );
 }
 
-
 // RiskBar: one horizontal bar per route. Each coloured segment is as wide as the miles at that level.
 function RiskBar({ milesByLevel }) {
   const total = LEVELS.reduce((sum, l) => sum + (milesByLevel[l.key] ?? 0), 0);
   if (total <= 0) return null;
   return (
-    <div style={{ display: "flex", height: 14, borderRadius: 4, overflow: "hidden", background: "#eee" }}>
+    <div className="risk-bar">
       {LEVELS.map((l) => {
         const miles = milesByLevel[l.key] ?? 0;
         if (miles <= 0) return null; // skip levels with no miles
-        return (
-          <div
-            key={l.key}
-            title={`${l.key}: ${miles} mi`}
-            style={{ width: `${(miles / total) * 100}%`, background: l.fill }}
-          />
-        );
+        return <div key={l.key} title={`${l.key}: ${miles} mi`} style={{ width: `${(miles / total) * 100}%`, background: l.fill }} />;
       })}
     </div>
+  );
+}
+
+// RiskTag: a coloured dot plus the level word ("Low", "Moderate", ...).
+function RiskTag({ label, fill }) {
+  return (
+    <span className="risk-tag">
+      <span className="dot" style={{ background: fill }} />
+      {label}
+    </span>
   );
 }
 
 // Legend: one swatch per level, so the bar colours are readable.
 function Legend() {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 13, margin: "8px 0" }}>
+    <div className="legend">
       {LEVELS.map((l) => (
-        <span key={l.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ width: 12, height: 12, borderRadius: 2, background: l.fill, display: "inline-block" }} />
+        <span key={l.key}>
+          <span className="swatch" style={{ background: l.fill }} />
           {l.key}
         </span>
       ))}
@@ -100,7 +107,7 @@ function SpacingLine({ spacing }) {
   if (!spacing) return null;
   const changed = spacing.used !== spacing.requested;
   return (
-    <p style={{ margin: "8px 0" }}>
+    <p className="muted" style={{ margin: 0 }}>
       Checkpoints every {spacing.used} mi{changed ? ` (you requested ${spacing.requested})` : ""}.
     </p>
   );
@@ -115,41 +122,26 @@ function RouteCard({ route, fastestHours, selected, onSelect }) {
   const noData = unknownMiles >= route.distance_miles - 0.5;
   const extraHours = route.duration_hours - fastestHours;
   return (
-    <div onClick={onSelect}
-      style={{
-        border: route.recommended ? "2px solid #2e9e5b" : "1px solid #ccc",
-        cursor: "pointer",
-        boxShadow: selected ? "0 0 0 3px #1f5fbf" : "none",
-        borderRadius: 8,
-        padding: 12,
-        flex: "1 1 260px",
-        maxWidth: 420,
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+    <div className={`card${selected ? " selected" : ""}`} onClick={onSelect}>
+      <div className="card-head">
         <strong>Route {route.index + 1}</strong>
-        {route.recommended && (
-          <span style={{ background: "#2e9e5b", color: "white", borderRadius: 10, padding: "2px 8px", fontSize: 12 }}>
-            Recommended
-          </span>
-        )}
+        {route.recommended && <span className="badge">Recommended</span>}
+      </div>
+      <div className="risk-row">
+        <RiskTag label={noData ? "No data" : stats.worst_level} fill={noData ? "#9a9a9a" : fillFor(stats.worst_level)} />
+        <span className="muted">Avg risk {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}</span>
       </div>
       <RiskBar milesByLevel={miles} />
-      <p style={{ margin: "8px 0 0" }}>
+      <p>
         {route.distance_miles} mi &middot; {route.duration_hours} h &middot;{" "}
         {extraHours >= 0.05 ? `+${extraHours.toFixed(1)} h vs fastest` : "Fastest"}
       </p>
-      <p style={{ margin: "4px 0 0" }}>Arrives (origin time): {formatLocal(route.arrival_local)}</p>
-      <p style={{ margin: "4px 0 0" }}>
-        Worst: {noData ? "No weather data" : stats.worst_level} &middot; Avg risk:{" "}
-        {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}
-      </p>
-      {unknownMiles > 0 && !noData && (
-        <p style={{ margin: "4px 0 0", color: "#666" }}>{unknownMiles} mi without weather data</p>
-      )}
+      <p className="muted">Arrives (origin time): {formatLocal(route.arrival_local)}</p>
+      {unknownMiles > 0 && !noData && <p className="muted">{unknownMiles} mi without weather data</p>}
     </div>
   );
 }
+
 export default function App() {
   const [form, setForm] = useState({
     origin: "Chicago, IL",
@@ -196,40 +188,72 @@ export default function App() {
     }
   }
 
+  const fastestHours = result ? Math.min(...result.routes.map((x) => x.duration_hours)) : 0;
+
   return (
-    <main style={{ fontFamily: "system-ui, sans-serif", padding: 24 }}>
-      <h1>Weather-Aware Truck Routing</h1>
-      <PlanForm form={form} setForm={setForm} loading={loading} onSubmit={plan} />
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {result && (
-        <>
-          <p>{result.explanation}</p>
-          {result.notes.length > 0 && (
-            <ul style={{ color: "#8a5a00" }}>
-              {result.notes.map((n, i) => (
-                <li key={i}>{n}</li>
-              ))}
-            </ul>
+    <div className="app">
+      {/* Layer 1: the map fills the screen and stays mounted. */}
+      <div className="map-layer">
+        <RouteMap
+          routes={result ? result.routes : NO_ROUTES}
+          selectedIndex={selected}
+          onSelect={setSelected}
+          hour={hour}
+          spacingUsed={result ? result.spacing.used : 25}
+        />
+      </div>
+
+      {/* Layer 2: floating panels on top of the map. */}
+      <div className="overlay">
+        <header className="panel topbar">
+          <div className="brand">
+            <strong>Weather-Aware</strong>
+            <span>Truck Routing</span>
+          </div>
+          <PlanForm form={form} setForm={setForm} loading={loading} onSubmit={plan} />
+        </header>
+
+        {error && <div className="panel error">{error}</div>}
+
+        <div className="middle">
+          {result ? (
+            <aside className="panel results">
+              <p className="explanation">{result.explanation}</p>
+              <div className="cards">
+                {result.routes.map((r) => (
+                  <RouteCard
+                    key={r.index}
+                    route={r}
+                    fastestHours={fastestHours}
+                    selected={r.index === selected}
+                    onSelect={() => setSelected(r.index)}
+                  />
+                ))}
+              </div>
+              <SpacingLine spacing={result.spacing} />
+              <Legend />
+              {result.notes.length > 0 && (
+                <details className="notes" open={result.notes.length <= 2}>
+                  <summary>Notes ({result.notes.length})</summary>
+                  <ul>
+                    {result.notes.map((n, i) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </aside>
+          ) : (
+            !error && <aside className="panel hint">Enter a trip and press Plan routes.</aside>
           )}
-          <SpacingLine spacing={result.spacing} />
-          <Legend />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {result.routes.map((r) => (
-              <RouteCard
-                key={r.index}
-                route={r}
-                fastestHours={Math.min(...result.routes.map((x) => x.duration_hours))}
-                selected={r.index === selected}
-                onSelect={() => setSelected(r.index)}
-              />
-            ))}
+        </div>
+
+        {result && result.heat && (
+          <div className="panel bottombar">
+            <HeatSlider heat={result.heat} hour={hour} onChange={setHour} />
           </div>
-        <div style={{ marginTop: 16 }}>
-            {result.heat && <HeatSlider heat={result.heat} hour={hour} onChange={setHour} />}
-            <RouteMap routes={result.routes} selectedIndex={selected} onSelect={setSelected} hour={hour} spacingUsed={result.spacing.used} />
-          </div>
-        </>
-      )}
-    </main>
+        )}
+      </div>
+    </div>
   );
 }
