@@ -9,3 +9,4 @@ dist/
 .DS_Store
 *.log
 scratch_*.py
+staticfiles/

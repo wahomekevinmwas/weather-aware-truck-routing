@@ -36,6 +36,9 @@ if not SECRET_KEY:
     SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+_render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if _render_host:
+    ALLOWED_HOSTS.append(_render_host)
 if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -127,6 +131,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# OpenStreetMap's tile servers reject requests that carry no Referer. Django's default policy
+# ("same-origin") strips it on cross-origin requests, so send the origin only.
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+# Production: WhiteNoise serves the built React app (frontend/dist) from the site root, so one Django
+# process hosts both the API and the UI. In local development Vite serves the UI instead.
+FRONTEND_DIST = BASE_DIR.parent / 'frontend' / 'dist'
+if FRONTEND_DIST.is_dir():
+    WHITENOISE_ROOT = FRONTEND_DIST
+    WHITENOISE_INDEX_FILE = True
 
 
 # Email
