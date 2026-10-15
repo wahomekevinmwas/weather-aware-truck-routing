@@ -299,6 +299,8 @@ class PlanService:
             raise PlanError("The weather service is unavailable right now, so the routes can't be scored. "
                             "Try again in a minute.", code="weather_unavailable", status=503) from exc
         if batch.errors:
+            reasons = '; '.join(dict.fromkeys(batch.errors))[:200]
+            logger.warning("weather chunks failed: %s", batch.errors)
             notes.append("Weather data could not be loaded for some checkpoints "
-                         f"({len(batch.errors)} request(s) failed); those checkpoints are shown as Unknown.")
+                         f"({len(batch.errors)} request(s) failed: {reasons}); those checkpoints are shown as Unknown.")
         return batch
