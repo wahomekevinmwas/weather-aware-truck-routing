@@ -65,6 +65,11 @@ body { background: var(--bg); color: var(--text); font-family: system-ui, "Segoe
 .heat-slider input { width: 100%; accent-color: var(--accent); margin: 6px 0; }
 .heat-note { font-size: 12px; }
 
+/* Map annotations: risk tags and weather pictures along the selected route */
+.map-tag, .map-wx { background: transparent; border: 0; }
+.map-tag span { position: absolute; transform: translate(-50%, 10px); white-space: nowrap; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #ffffff; background: rgba(11, 22, 32, 0.92); border: 2px solid var(--tag, #9a9a9a); }
+.map-wx span { position: absolute; transform: translate(-50%, -140%); font-size: 22px; line-height: 1; white-space: nowrap; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)); }
+
 /* Leaflet: dark map. The filter darkens only the tiles; routes and halos keep their own colours. */
 .leaflet-container { background: #0e1a24; font: inherit; }
 .dark-tiles { filter: invert(100%) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.6); }
