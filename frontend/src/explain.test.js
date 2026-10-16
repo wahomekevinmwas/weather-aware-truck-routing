@@ -75,6 +75,12 @@ test("every preset question is understood", () => {
   }
 });
 
+test("ranking answer mentions all three tie tolerances", () => {
+  const a = answerQuestion("How are routes ranked?", plan, 0);
+  assert.match(a, /1 mile/);
+  assert.match(a, /0\.02/);
+  assert.match(a, /1 minute/);
+});
 test("a very long question does not throw", () => {
   assert.doesNotThrow(() => answerQuestion("why ".repeat(5000), plan, 0));
 });

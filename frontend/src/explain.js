@@ -121,7 +121,7 @@ function levelsText() {
 function rankingRule() {
   return [
     "Routes are ordered by: fewest No Travel miles, then fewest Severe miles, then fewest High miles, then lower average risk, then shorter travel time.",
-    "Differences under 1 mile or 0.02 average risk count as ties and fall through to the next rule.",
+    "Near-ties fall through to the next rule: differences under 1 mile, 0.02 average risk or 1 minute count as equal, so a trivial weather difference cannot beat a much faster route.",
     "The first route in that order is the recommended one. This panel only reads the result; it never changes it.",
   ].join("\n");
 }
