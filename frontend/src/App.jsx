@@ -1,6 +1,7 @@
 import { useState } from "react";
 import RouteMap from "./RouteMap.jsx";
 import HeatSlider from "./HeatSlider.jsx";
+import Explainer from "./Explainer.jsx";
 import { LEVELS } from "./riskColors.js";
 import { formatLocal } from "./format.js";
 import "./styles.css";
@@ -264,6 +265,7 @@ export default function App() {
             <HeatSlider heat={result.heat} hour={hour} onChange={setHour} />
           </div>
         )}
+        <Explainer result={result} selectedIndex={selected} />
       </div>
     </div>
   );
