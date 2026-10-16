@@ -4,6 +4,7 @@ A React + Django web app that helps a truck driver choose the safest of three ro
 
 - Hosted app: https://weather-aware-truck-routing-ssmj.onrender.com
 - Repository: https://github.com/wahomekevinmwas/weather-aware-truck-routing
+- Code walkthrough: [docs/CODE_WALKTHROUGH.md](docs/CODE_WALKTHROUGH.md)
 
 The hosted app runs on Render's free tier, which spins down when idle. The first load after a quiet spell can take about 30 seconds (one measurement: 32 s for the page). After that it is fast. Planning a trip took roughly 6 to 11 seconds in my tests, because it calls three public services (see "External services").
 
