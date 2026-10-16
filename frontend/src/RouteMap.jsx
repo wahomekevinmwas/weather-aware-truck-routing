@@ -9,15 +9,15 @@ const UNKNOWN_HEAT = "#9a9a9a";
 
 // FitBounds: when new routes arrive, zoom the map so every route is visible.
 // useMap() gives access to the Leaflet map this component sits inside; it draws nothing itself.
-// The padding keeps routes clear of the floating panels (left panel, top bar, bottom bar).
-function FitBounds({ routes }) {
+// The left padding clears the sidebar (smaller when it is collapsed); right and bottom clear the zoom control and slider.
+function FitBounds({ routes, leftPad }) {
   const map = useMap();
   useEffect(() => {
     const points = routes.flatMap((r) => r.geometry); // each point is [lat, lon]
     if (points.length > 1) {
-      map.fitBounds(points, { paddingTopLeft: [440, 120], paddingBottomRight: [40, 130] });
+      map.fitBounds(points, { paddingTopLeft: [leftPad, 40], paddingBottomRight: [100, 130] });
     }
-  }, [routes, map]);
+  }, [routes, map, leftPad]);
   return null;
 }
 
@@ -106,7 +106,7 @@ const RouteLayers = memo(function RouteLayers({ routes, selectedIndex, onSelect 
 // RouteMap: heat first (underneath), then lines and dots on top. preferCanvas draws every shape on one
 // <canvas> instead of one SVG element each, which keeps the map smooth with hundreds of shapes.
 // The tile layer gets the "dark-tiles" class, which styles.css uses to darken the map.
-export default function RouteMap({ routes, selectedIndex, onSelect, hour = 0, spacingUsed = 25 }) {
+export default function RouteMap({ routes, selectedIndex, onSelect, hour = 0, spacingUsed = 25, leftPad = 440 }) {
   const selectedRoute = routes.find((r) => r.index === selectedIndex);
   return (
     <MapContainer preferCanvas zoomControl={false} center={[39.5, -98.35]} zoom={4} style={{ height: "100%", width: "100%" }}>
@@ -115,8 +115,8 @@ export default function RouteMap({ routes, selectedIndex, onSelect, hour = 0, sp
         attribution="&copy; OpenStreetMap contributors"
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <ZoomControl position="bottomright" />
-      <FitBounds routes={routes} />
+      <ZoomControl position="topright" />
+      <FitBounds routes={routes} leftPad={leftPad} />
       <HeatLayer route={selectedRoute} hour={hour} spacingUsed={spacingUsed} />
       <RouteLayers routes={routes} selectedIndex={selectedIndex} onSelect={onSelect} />
     </MapContainer>

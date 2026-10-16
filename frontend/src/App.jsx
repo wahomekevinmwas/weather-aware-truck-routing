@@ -154,6 +154,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(0);
+  const [collapsed, setCollapsed] = useState(false); // true = sidebar hidden, so the whole map shows
   const [hour, setHour] = useState(0); // slider position: hours after departure (0-48)
 
   async function plan() {
@@ -200,56 +201,66 @@ export default function App() {
           onSelect={setSelected}
           hour={hour}
           spacingUsed={result ? result.spacing.used : 25}
+          leftPad={collapsed ? 60 : 430}
         />
       </div>
 
-      {/* Layer 2: floating panels on top of the map. */}
+      {/* Layer 2: floating UI on top of the map. */}
       <div className="overlay">
-        <header className="panel topbar">
-          <div className="brand">
-            <strong>Weather-Aware</strong>
-            <span>Truck Routing</span>
-          </div>
-          <PlanForm form={form} setForm={setForm} loading={loading} onSubmit={plan} />
-        </header>
-
-        {error && <div className="panel error">{error}</div>}
-
-        <div className="middle">
-          {result ? (
-            <aside className="panel results">
-              <p className="explanation">{result.explanation}</p>
-              <div className="cards">
-                {result.routes.map((r) => (
-                  <RouteCard
-                    key={r.index}
-                    route={r}
-                    fastestHours={fastestHours}
-                    selected={r.index === selected}
-                    onSelect={() => setSelected(r.index)}
-                  />
-                ))}
+        {collapsed ? (
+          <button type="button" className="panel show-panel" onClick={() => setCollapsed(false)}>
+            Show panel &raquo;
+          </button>
+        ) : (
+          <aside className="panel sidebar">
+            <div className="sidebar-head">
+              <div className="brand">
+                <strong>Weather-Aware</strong>
+                <span>Truck Routing</span>
               </div>
-              <SpacingLine spacing={result.spacing} />
-              <Legend />
-              {result.notes.length > 0 && (
-                <details className="notes" open={result.notes.length <= 2}>
-                  <summary>Notes ({result.notes.length})</summary>
-                  <ul>
-                    {result.notes.map((n, i) => (
-                      <li key={i}>{n}</li>
+              <button type="button" className="icon-btn" title="Hide panel" aria-label="Hide panel" onClick={() => setCollapsed(true)}>
+                &laquo;
+              </button>
+            </div>
+            <div className="sidebar-body">
+              <PlanForm form={form} setForm={setForm} loading={loading} onSubmit={plan} />
+              {error && <div className="error">{error}</div>}
+              {result ? (
+                <div className="results">
+                  <p className="explanation">{result.explanation}</p>
+                  <div className="cards">
+                    {result.routes.map((r) => (
+                      <RouteCard
+                        key={r.index}
+                        route={r}
+                        fastestHours={fastestHours}
+                        selected={r.index === selected}
+                        onSelect={() => setSelected(r.index)}
+                      />
                     ))}
-                  </ul>
-                </details>
+                  </div>
+                  <SpacingLine spacing={result.spacing} />
+                  <Legend />
+                  {result.notes.length > 0 && (
+                    <details className="notes" open={result.notes.length <= 2}>
+                      <summary>Notes ({result.notes.length})</summary>
+                      <ul>
+                        {result.notes.map((n, i) => (
+                          <li key={i}>{n}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                !error && <p className="hint">Enter a trip and press Plan routes.</p>
               )}
-            </aside>
-          ) : (
-            !error && <aside className="panel hint">Enter a trip and press Plan routes.</aside>
-          )}
-        </div>
+            </div>
+          </aside>
+        )}
 
         {result && result.heat && (
-          <div className="panel bottombar">
+          <div className={`panel bottombar${collapsed ? " full" : ""}`}>
             <HeatSlider heat={result.heat} hour={hour} onChange={setHour} />
           </div>
         )}
