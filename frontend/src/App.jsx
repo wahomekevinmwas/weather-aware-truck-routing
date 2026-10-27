@@ -130,7 +130,7 @@ function RouteCard({ route, fastestHours, selected, onSelect }) {
       </div>
       <div className="risk-row">
         <RiskTag label={noData ? "No data" : stats.worst_level} fill={noData ? "#9a9a9a" : fillFor(stats.worst_level)} />
-        <span className="muted">Avg risk {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}</span>
+        <span className="muted">Avg risk {noData ? "n/a" : Number(stats.average_risk).toFixed(2)}{noData ? "" : " / 4"}</span>
       </div>
       <RiskBar milesByLevel={miles} />
       <p>

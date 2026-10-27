@@ -109,11 +109,17 @@ function missing(result) {
   return lines.join("\n");
 }
 
+// These thresholds repeat backend/planner/core/risk.py, which is the source of truth. If risk.py changes, update this text and its test.
 function levelsText() {
   return [
     `Risk levels, mildest to most severe: ${RANKED.join(", ")}.`,
     "Unknown (grey) means no usable weather data; it is never counted as Low.",
-    "The exact thresholds live in the backend rules (see docs/RULES.md in the repository); this panel does not restate them.",
+    "Each checkpoint takes the worst of its wind, rain and snow levels.",
+    "Wind (mph): Moderate from 25, High from 35, Severe from 45, No Travel from 55.",
+    "Rain (in/hr): Moderate from 0.10, High from 0.25, Severe from 0.50, No Travel above 1.00.",
+    "Snow (in/hr): Moderate from 0.5, High from 1.0, Severe from 2.0, No Travel above 3.0.",
+    "A load over 40,000 lb makes 35-44 mph wind Severe; over 30,000 lb makes 45-54 mph wind No Travel.",
+    "Gusts are shown but not scored. Average risk uses a 0-4 scale: Low 0, Moderate 1, High 2, Severe 3, No Travel 4.",
     "Click any checkpoint dot on the map to see its wind, rain, snow and the reasons behind its level.",
   ].join("\n");
 }

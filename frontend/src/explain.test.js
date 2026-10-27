@@ -84,3 +84,10 @@ test("ranking answer mentions all three tie tolerances", () => {
 test("a very long question does not throw", () => {
   assert.doesNotThrow(() => answerQuestion("why ".repeat(5000), plan, 0));
 });
+
+test("risk levels answer states the thresholds and the 0-4 scale", () => {
+  const text = answerQuestion("What do the risk levels mean?", plan, 0);
+  assert.match(text, /Wind \(mph\): Moderate from 25, High from 35, Severe from 45, No Travel from 55/);
+  assert.match(text, /Low 0, Moderate 1, High 2, Severe 3, No Travel 4/);
+  assert.doesNotMatch(text, /RULES\.md/);
+});
